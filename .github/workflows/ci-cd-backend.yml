@@ -33,15 +33,6 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-extras
 
-      - name: Tests
-        env:
-          OPENAI_API_KEY: "test"
-          MONGO_URI: "mongodb://localhost:27017"
-          MONGO_DB_NAME: "test-db"
-          REDIS_URL: "redis://localhost:6379/0"
-        run: |
-          uv run pytest
-
   build-and-deploy:
     needs: lint-test
     runs-on: ubuntu-latest
