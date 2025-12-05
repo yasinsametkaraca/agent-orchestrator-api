@@ -13,6 +13,7 @@ env:
   ECR_REPOSITORY_WORKER: ${{ secrets.ECR_REPOSITORY_WORKER }}
   CODEDEPLOY_APP_NAME: ${{ secrets.CODEDEPLOY_APP_NAME }}
   CODEDEPLOY_DEPLOYMENT_GROUP: ${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP }}
+  S3_DEPLOYMENT_BUCKET: ${{ secrets.S3_DEPLOYMENT_BUCKET }}
 
 jobs:
   lint-test:
@@ -88,9 +89,9 @@ jobs:
 
       - name: Upload to S3
         run: |
-          S3_BUCKET="agent-orchestrator-deployments"
+          S3_BUCKET="$S3_DEPLOYMENT_BUCKET"
           S3_KEY="backend/deployment-${{ github.run_id }}.zip"
-          aws s3 cp deployment.zip s3://$S3_BUCKET/$S3_KEY
+          aws s3 cp deployment.zip "s3://$S3_BUCKET/$S3_KEY"
           echo "S3_KEY=$S3_KEY" >> $GITHUB_ENV
 
       - name: Create CodeDeploy Deployment
@@ -99,4 +100,4 @@ jobs:
             --application-name "$CODEDEPLOY_APP_NAME" \
             --deployment-group-name "$CODEDEPLOY_DEPLOYMENT_GROUP" \
             --deployment-config-name CodeDeployDefault.AllAtOnce \
-            --s3-location bucket=agent-orchestrator-deployments,key=$S3_KEY,bundleType=zip
+            --s3-location bucket=$S3_DEPLOYMENT_BUCKET,key=$S3_KEY,bundleType=zip
