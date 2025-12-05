@@ -1,0 +1,90 @@
+name: Feature Request
+description: Propose a new feature or improvement for the Agent Orchestrator backend.
+title: "[FEAT] <short summary>"
+labels:
+  - "type:feature"
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to propose a feature for **agent-orchestrator-api**.
+        Please fill in the sections below as clearly as possible.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: High-level description of the feature. What do you want to add or change?
+      placeholder: |
+        As a <role>, I want <capability>, so that <benefit>.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / Problem
+      description: Why is this feature needed? What problem does it solve?
+      placeholder: |
+        - Current limitation:
+        - Impact on users / system:
+        - Why now?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution (High-Level)
+      description: Describe your idea of the solution. Architectural notes, affected components, etc.
+      placeholder: |
+        - Affected areas: api / agents / worker / db / devops
+        - Rough flow:
+        - Data model or API changes:
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered other approaches? Why did you choose this one?
+      placeholder: |
+        - Alternative A:
+        - Alternative B:
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: List clear, testable conditions that must be true for this feature to be considered done.
+      placeholder: |
+        - [ ] API endpoint X is available at /v1/...
+        - [ ] New task status is visible on dashboard
+        - [ ] Unit tests cover happy path and error scenarios
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact / Risk
+      description: Call out potential impacts, risks or breaking changes.
+      placeholder: |
+        - Breaking changes: yes/no (if yes, describe)
+        - Performance impact:
+        - Operational impact (deployment, migrations, infra):
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any additional information, diagrams, links, or references.
+    validations:
+      required: false

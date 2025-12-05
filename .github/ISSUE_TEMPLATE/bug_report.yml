@@ -1,0 +1,102 @@
+name: Bug Report
+description: Report a bug or regression in the Agent Orchestrator backend.
+title: "[BUG] <short summary>"
+labels:
+  - "type:bug"
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please provide as much detail as possible so we can reproduce and fix it.
+
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the system is affected?
+      placeholder: api / worker / agents / db / devops / other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: |
+        A concise but complete description of the issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps To Reproduce
+      description: How can we reproduce the issue reliably?
+      placeholder: |
+        1. Given ...
+        2. When ...
+        3. Then ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Stack Traces
+      description: Paste any relevant logs, stack traces or error messages (redact secrets).
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: Environment where the bug occurs.
+      placeholder: local / dev / staging / prod
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / Commit
+      description: Git commit SHA, tag or version where you observed the bug.
+      placeholder: e.g. 1.0.0 or a1b2c3d
+    validations:
+      required: false
+
+  - type: textarea
+    id: mitigations
+    attributes:
+      label: Workarounds / Mitigations
+      description: Any known workaround or temporary mitigation.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context like sequence of requests, screenshots, diagrams, etc.
+    validations:
+      required: false
