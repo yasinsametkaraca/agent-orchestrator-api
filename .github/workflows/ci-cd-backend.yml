@@ -1,0 +1,103 @@
+name: CI-CD Backend
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY_API: ${{ secrets.ECR_REPOSITORY_API }}
+  ECR_REPOSITORY_WORKER: ${{ secrets.ECR_REPOSITORY_WORKER }}
+  CODEDEPLOY_APP_NAME: ${{ secrets.CODEDEPLOY_APP_NAME }}
+  CODEDEPLOY_DEPLOYMENT_GROUP: ${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP }}
+  S3_DEPLOYMENT_BUCKET: ${{ secrets.S3_DEPLOYMENT_BUCKET }}
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Sync dependencies
+        run: uv sync --all-extras
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run black --check .
+
+      - name: Type check
+        run: uv run mypy app
+
+      - name: Tests
+        env:
+          OPENAI_API_KEY: "test"
+          MONGO_URI: "mongodb://localhost:27017"
+          MONGO_DB_NAME: "test-db"
+          REDIS_URL: "redis://localhost:6379/0"
+        run: |
+          uv run pytest
+
+  build-and-deploy:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+      - name: Build images
+        run: |
+          API_IMAGE="$ECR_REPOSITORY_API:latest"
+          WORKER_IMAGE="$ECR_REPOSITORY_WORKER:latest"
+          docker build -f docker/Dockerfile.api -t $API_IMAGE .
+          docker build -f docker/Dockerfile.worker -t $WORKER_IMAGE .
+
+      - name: Push images
+        run: |
+          docker push $ECR_REPOSITORY_API:latest
+          docker push $ECR_REPOSITORY_WORKER:latest
+
+      - name: Create deployment bundle
+        run: |
+          zip -r deployment.zip app docker scripts appspec.yml pyproject.toml README.md
+
+      - name: Upload to S3
+        run: |
+          S3_BUCKET="$S3_DEPLOYMENT_BUCKET"
+          S3_KEY="backend/deployment-${{ github.run_id }}.zip"
+          aws s3 cp deployment.zip "s3://$S3_BUCKET/$S3_KEY"
+          echo "S3_KEY=$S3_KEY" >> $GITHUB_ENV
+
+      - name: Create CodeDeploy Deployment
+        run: |
+          aws deploy create-deployment \
+            --application-name "$CODEDEPLOY_APP_NAME" \
+            --deployment-group-name "$CODEDEPLOY_DEPLOYMENT_GROUP" \
+            --deployment-config-name CodeDeployDefault.AllAtOnce \
+            --s3-location bucket=$S3_DEPLOYMENT_BUCKET,key=$S3_KEY,bundleType=zip
