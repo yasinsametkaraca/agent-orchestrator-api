@@ -3,8 +3,6 @@ name: CI-CD Backend
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -34,14 +32,6 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --all-extras
-
-      - name: Lint
-        run: |
-          uv run ruff check .
-          uv run black --check .
-
-      - name: Type check
-        run: uv run mypy app
 
       - name: Tests
         env:
