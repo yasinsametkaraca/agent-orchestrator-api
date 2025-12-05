@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: agent-orchestrator-api
+    env_file:
+      - ../.env
+    environment:
+      ENVIRONMENT: local
+      APP_NAME: agent-orchestrator-api
+      LOG_LEVEL: DEBUG
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB_NAME: agent-orchestrator-db
+      REDIS_URL: redis://redis:6379/0
+      LLM_PEER_MODEL: gpt-4.1-mini
+      LLM_CONTENT_MODEL: gpt-4.1
+      LLM_CODE_MODEL: gpt-4o
+      WEB_SEARCH_PROVIDER: tavily
+      PROMETHEUS_ENABLED: "true"
+      RATE_LIMIT_PER_MINUTE: 60
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - redis
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    container_name: agent-orchestrator-worker
+    env_file:
+      - ../.env
+    environment:
+      ENVIRONMENT: local
+      APP_NAME: agent-orchestrator-worker
+      LOG_LEVEL: INFO
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB_NAME: agent-orchestrator-db
+      REDIS_URL: redis://redis:6379/0
+      LLM_PEER_MODEL: gpt-4.1-mini
+      LLM_CONTENT_MODEL: gpt-4.1
+      LLM_CODE_MODEL: gpt-4o
+      WEB_SEARCH_PROVIDER: tavily
+      RATE_LIMIT_PER_MINUTE: 1000
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo:7.0
+    container_name: agent-orchestrator-mongo
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:7.4
+    container_name: agent-orchestrator-redis
+    ports:
+      - "6379:6379"
