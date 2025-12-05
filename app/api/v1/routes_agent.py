@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 
 from app.core.config import get_settings
+from app.core.errors import AppError
 from app.core.logging import bind_request_context, get_logger
 from app.core.security import verify_api_key
 from app.models.api.requests import ExecuteTaskRequest
@@ -60,7 +61,21 @@ async def execute_task(
     logger.info("Task enqueued", task_id=task.task_id, session_id=session_id)
 
     # Enqueue Celery job
-    process_task.delay(task.task_id)
+    try:
+        process_task.delay(task.task_id)
+    except Exception as exc:
+        logger.error(
+            "Task enqueue failed",
+            task_id=task.task_id,
+            error=str(exc),
+            exc_type=exc.__class__.__name__,
+        )
+        raise AppError(
+            code="TASK_ENQUEUE_FAILED",
+            message="Failed to enqueue task for background processing.",
+            status_code=503,
+            extra={"task_id": task.task_id},
+        ) from exc
 
     return ExecuteTaskResponse(
         task_id=task.task_id,

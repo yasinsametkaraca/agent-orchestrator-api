@@ -30,6 +30,7 @@ def build_settings_debug_snapshot(settings: Settings) -> Dict[str, Any]:
         "log_level": settings.log_level,
         "mongo_db_name": settings.mongo_db_name,
         "redis_url_present": bool(settings.redis_url),
+        "redis_global_keyprefix": settings.redis_global_keyprefix,
         "openai_api_key_masked": _mask_secret(settings.openai_api_key),
         "tavily_api_key_masked": _mask_secret(settings.tavily_api_key),
         "api_keys_count": len(settings.api_keys),

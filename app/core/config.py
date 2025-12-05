@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # Redis / Queue
     redis_url: str = Field(..., alias="REDIS_URL")
+    redis_global_keyprefix: Optional[str] = Field(None, alias="REDIS_GLOBAL_KEYPREFIX")
     celery_broker_url: Optional[str] = Field(None, alias="CELERY_BROKER_URL")
     celery_result_backend: Optional[str] = Field(None, alias="CELERY_RESULT_BACKEND")
 
