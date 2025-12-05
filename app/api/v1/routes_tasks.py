@@ -38,8 +38,19 @@ async def list_tasks(
 
     logger.info("Tasks.list", count=len(tasks))
 
+    # Track where summaries are sourced from for easier debugging and monitoring.
+    summary_from_result = 0
+    summary_from_input = 0
+
     summaries: List[TaskSummaryResponse] = []
     for t in tasks:
+        if t.result and t.result.summary:
+            summary_text = t.result.summary
+            summary_from_result += 1
+        else:
+            summary_text = t.input_text
+            summary_from_input += 1
+
         summaries.append(
             TaskSummaryResponse(
                 task_id=t.task_id,
@@ -48,9 +59,15 @@ async def list_tasks(
                 status=t.status,
                 created_at=t.created_at,
                 completed_at=t.completed_at,
-                summary=t.result.summary if t.result else None if hasattr(t, "result") else None,
+                summary=summary_text,
             )
         )
+
+    logger.debug(
+        "Tasks.summary_sources",
+        from_result=summary_from_result,
+        from_input=summary_from_input,
+    )
     return summaries
 
 
