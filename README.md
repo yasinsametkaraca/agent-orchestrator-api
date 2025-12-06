@@ -1572,7 +1572,3 @@ uv run ruff check .
 uv run black .
 uv run mypy app
 ```
-
----
-
-This README describes the **full backend** of the Agent Orchestrator, including all required and bonus features for the technical test: agentic routing, queue-based processing, robust logging and metrics, session/memory, SSE events, AWS deployment, and production-oriented design. Save it as `README.md` at the root of the `agent-orchestrator-api` repository.
