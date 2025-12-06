@@ -47,12 +47,28 @@ class WebSearchTool:
             )
             return []
 
-        response = await self._client.search(
+        self._logger.debug(
+            "WebSearchTool.search.start",
             query=query,
             max_results=max_results,
-            include_answer=False,
-            include_raw_content=False,
         )
+
+        try:
+            response = await self._client.search(
+                query=query,
+                max_results=max_results,
+                include_answer=False,
+                include_raw_content=False,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self._logger.error(
+                "WebSearchTool.search.error",
+                query=query,
+                max_results=max_results,
+                error=str(exc),
+                exc_info=exc,
+            )
+            return []
 
         results: List[WebSearchResult] = []
         for item in response.get("results", []):
@@ -64,4 +80,11 @@ class WebSearchTool:
                     score=float(item.get("score") or 0.0),
                 )
             )
+
+        self._logger.debug(
+            "WebSearchTool.search.completed",
+            query=query,
+            max_results=max_results,
+            result_count=len(results),
+        )
         return results

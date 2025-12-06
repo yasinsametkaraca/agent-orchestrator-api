@@ -34,24 +34,35 @@ class CodeAgent(BaseAgent):
             - Error handling
             - Clear structure and comments
 
-            You MUST respond in the following JSON format ONLY (no extra text):
+            Output requirements:
+            - You MUST respond in the following JSON format ONLY (no extra text):
+              {
+                "language": "<programming-language-name>",
+                "description": "<short explanation of what the code does>",
+                "code": "<the full code, without markdown fences>"
+              }
+            - The "language" field describes the programming language of the code (e.g., "python", "typescript").
+            - The "description" field MUST be written in the appropriate natural language, following the language
+              rules below.
 
-            {
-              "language": "<programming-language-name>",
-              "description": "<short explanation of what the code does>",
-              "code": "<the full code, without markdown fences>"
-            }
+            Language rules:
+            - By default, the "description" must use the same language as the user's request.
+            - If the user explicitly asks for a specific output language (for example: "write the explanation in English"),
+              you MUST follow that explicit instruction even if the request itself is written in another language.
+            - Keep technical identifiers (variable names, function names, etc.) in the most idiomatic form for the
+              chosen programming language, but keep surrounding explanation text aligned with the requested natural
+              language.
             """
         ).strip()
-
         user_prompt = textwrap.dedent(
             f"""
-            User task (in user's language):
+            User task (verbatim, in the user's own words):
             {task.input_text}
 
             Decide the most appropriate programming language for this task.
             Prefer Python unless the user clearly asks for another one.
-            Then produce high-quality code.
+            Then produce high-quality code and a concise "description" field that follows the Language rules from
+            the system message.
             """
         ).strip()
 
@@ -86,6 +97,8 @@ class CodeAgent(BaseAgent):
             "CodeAgent.run.completed",
             task_id=task.task_id,
             language=language,
+            description_length=len(description),
+            code_length=len(code),
             prompt_tokens=response.usage.prompt_tokens,
             completion_tokens=response.usage.completion_tokens,
         )
