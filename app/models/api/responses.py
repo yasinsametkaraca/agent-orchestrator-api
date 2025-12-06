@@ -29,6 +29,20 @@ class TaskSummaryResponse(BaseModel):
     summary: Optional[str] = None
 
 
+class PaginationMeta(BaseModel):
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int
+    has_next: bool
+    has_previous: bool
+
+
+class PaginatedTasksResponse(BaseModel):
+    items: List[TaskSummaryResponse]
+    meta: PaginationMeta
+
+
 class TaskDetailResponse(BaseModel):
     task_id: str
     session_id: Optional[str]

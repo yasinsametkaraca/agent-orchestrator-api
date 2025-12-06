@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
@@ -8,14 +9,19 @@ from starlette.responses import StreamingResponse
 from app.core.logging import bind_request_context, get_logger
 from app.core.redis_client import get_redis_client
 from app.core.security import verify_api_key
-from app.models.api.responses import TaskDetailResponse, TaskSummaryResponse
+from app.models.api.responses import (
+    PaginationMeta,
+    PaginatedTasksResponse,
+    TaskDetailResponse,
+    TaskSummaryResponse,
+)
 from app.models.domain.task import TaskStatus
 from app.services.task_service import TaskService
 
 router = APIRouter(prefix="/v1", tags=["tasks"])
 
 
-@router.get("/tasks", response_model=List[TaskSummaryResponse])
+@router.get("/tasks", response_model=PaginatedTasksResponse)
 async def list_tasks(
     request: Request,
     status: Optional[TaskStatus] = Query(default=None),
@@ -23,20 +29,26 @@ async def list_tasks(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     _: str | None = Depends(verify_api_key),
-) -> List[TaskSummaryResponse]:
+) -> PaginatedTasksResponse:
     base_logger = get_logger("ListTasks")
     request_id = request.headers.get("X-Request-Id") or request.state.request_id  # type: ignore[attr-defined]
     logger = bind_request_context(base_logger, request_id=request_id, endpoint=str(request.url.path))
 
     task_service = TaskService()
-    tasks, _total = await task_service.list_tasks(
+    tasks, total = await task_service.list_tasks(
         status=status,
         agent_type=agent_type,
         page=page,
         page_size=page_size,
     )
 
-    logger.info("Tasks.list", count=len(tasks))
+    logger.info(
+        "Tasks.list",
+        count=len(tasks),
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
     # Track where summaries are sourced from for easier debugging and monitoring.
     summary_from_result = 0
@@ -68,7 +80,32 @@ async def list_tasks(
         from_result=summary_from_result,
         from_input=summary_from_input,
     )
-    return summaries
+
+    total_pages = math.ceil(total / page_size) if total > 0 else 0
+    has_next = page < total_pages
+    has_previous = page > 1
+
+    logger.debug(
+        "Tasks.pagination_meta",
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        has_next=has_next,
+        has_previous=has_previous,
+    )
+
+    return PaginatedTasksResponse(
+        items=summaries,
+        meta=PaginationMeta(
+            page=page,
+            page_size=page_size,
+            total_items=total,
+            total_pages=total_pages,
+            has_next=has_next,
+            has_previous=has_previous,
+        ),
+    )
 
 
 @router.get("/tasks/{task_id}", response_model=TaskDetailResponse)
