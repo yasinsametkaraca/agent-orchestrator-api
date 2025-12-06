@@ -1,9 +1,24 @@
-from __future__ import annotations
+from datetime import date, datetime
+from typing import Dict, List
 
-from datetime import date
-from typing import Dict
+from pydantic import BaseModel, ConfigDict, Field
 
-from pydantic import BaseModel, ConfigDict
+
+class DailyMetrics(BaseModel):
+    date: date
+    total_tasks: int
+    tasks_per_agent: Dict[str, int]
+    avg_latency_ms: float
+    p95_latency_ms: float
+
+
+class AllTimeMetrics(BaseModel):
+    total_tasks: int
+    tasks_per_agent: Dict[str, int]
+    avg_latency_ms: float
+    p95_latency_ms: float
+    first_task_at: datetime | None = None
+    last_task_at: datetime | None = None
 
 
 class SystemMetrics(BaseModel):
@@ -14,5 +29,9 @@ class SystemMetrics(BaseModel):
     avg_latency_ms: float
     p95_latency_ms: float
     api_health: Dict[str, str]
+
+    last_5_days: List[DailyMetrics] = Field(default_factory=list)
+
+    all_time: AllTimeMetrics | None = None
 
     model_config = ConfigDict(from_attributes=True)

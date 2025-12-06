@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Observability
     prometheus_enabled: bool = Field(True, alias="PROMETHEUS_ENABLED")
 
+    # Metrics
+    metrics_history_days: int = Field(5, alias="METRICS_HISTORY_DAYS")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

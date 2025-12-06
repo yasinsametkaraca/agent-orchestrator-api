@@ -39,6 +39,7 @@ def build_settings_debug_snapshot(settings: Settings) -> Dict[str, Any]:
         "api_keys_count": len(settings.api_keys),
         "cors_origins": settings.cors_origins,
         "prometheus_enabled": settings.prometheus_enabled,
+        "metrics_history_days": settings.metrics_history_days,
         "celery_broker": settings.celery_broker,
         "celery_backend": settings.celery_backend,
     }

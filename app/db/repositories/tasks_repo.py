@@ -85,25 +85,56 @@ class TaskRepository:
             {"status": {"$in": [s.value for s in statuses]}}
         )
 
-    async def find_completed_today(self, today_start: datetime, today_end: datetime) -> List[Task]:
-        cursor = self._collection.find(
-            {
-                "completed_at": {"$gte": today_start, "$lt": today_end},
-                "status": TaskStatus.COMPLETED.value,
-            }
-        )
+    async def find_completed_between(
+        self,
+        start: datetime | None,
+        end: datetime | None,
+    ) -> List[Task]:
+        """
+        Completed_at penceresiyle filtrelenmiş completed task listesi.
+        start/end None ise sadece status=COMPLETED filtresi uygulanır (tüm zamanlar).
+        """
+        match: Dict[str, Any] = {"status": TaskStatus.COMPLETED.value}
+        if start is not None or end is not None:
+            range_query: Dict[str, Any] = {}
+            if start is not None:
+                range_query["$gte"] = start
+            if end is not None:
+                range_query["$lt"] = end
+            match["completed_at"] = range_query
+
+        cursor = self._collection.find(match)
         return [Task(**doc) async for doc in cursor]
 
-    async def aggregate_today_by_agent(
-        self, today_start: datetime, today_end: datetime
+    async def find_completed_today(self, today_start: datetime, today_end: datetime) -> List[Task]:
+        """
+        Backwards compatible helper; artık generic metodu kullanıyor.
+        """
+        return await self.find_completed_between(today_start, today_end)
+
+    async def aggregate_by_agent_between(
+        self,
+        start: datetime | None,
+        end: datetime | None,
     ) -> Dict[str, int]:
+        """
+        Verilen pencere için agent bazlı task sayıları.
+        Agent sayımı için status=COMPLETED filtreleniyor; daha tutarlı metrik.
+        """
+        match: Dict[str, Any] = {
+            "agent_type": {"$ne": None},
+            "status": TaskStatus.COMPLETED.value,
+        }
+        if start is not None or end is not None:
+            range_query: Dict[str, Any] = {}
+            if start is not None:
+                range_query["$gte"] = start
+            if end is not None:
+                range_query["$lt"] = end
+            match["created_at"] = range_query
+
         pipeline = [
-            {
-                "$match": {
-                    "created_at": {"$gte": today_start, "$lt": today_end},
-                    "agent_type": {"$ne": None},
-                }
-            },
+            {"$match": match},
             {"$group": {"_id": "$selected_agent", "count": {"$sum": 1}}},
         ]
         result: Dict[str, int] = {}
@@ -111,3 +142,11 @@ class TaskRepository:
             agent_name = row["_id"] or "unknown"
             result[agent_name] = row["count"]
         return result
+
+    async def aggregate_today_by_agent(
+        self, today_start: datetime, today_end: datetime
+    ) -> Dict[str, int]:
+        """
+        Backwards compatible helper; generic aggregate_by_agent_between kullanır.
+        """
+        return await self.aggregate_by_agent_between(today_start, today_end)
