@@ -802,7 +802,7 @@ Router: `app/api/v1/routes_agent.py`
 ```http
 POST /v1/agent/execute
 Content-Type: application/json
-X-API-Key: <optional>
+X-API-Key: <required>
 X-Request-Id: <optional>
 ```
 
@@ -847,7 +847,7 @@ Router: `app/api/v1/routes_tasks.py`
 
 ```http
 GET /v1/tasks?status=completed&agent_type=code&page=1&page_size=20
-X-API-Key: <optional>
+X-API-Key: <required>
 ```
 
 Query parameters:
@@ -885,7 +885,7 @@ Router: `app/api/v1/routes_tasks.py`
 
 ```http
 GET /v1/tasks/e2f9d474-0a6b-4a3b-8df2-1e1a4f6b6c84
-X-API-Key: <optional>
+X-API-Key: <required>
 ```
 
 **Response**
@@ -946,7 +946,6 @@ Router: `app/api/v1/routes_tasks.py`
 ```http
 GET /v1/tasks/e2f9d474-0a6b-4a3b-8df2-1e1a4f6b6c84/events
 Accept: text/event-stream
-X-API-Key: <optional>
 ```
 
 On the frontend:
@@ -1133,6 +1132,25 @@ Key loggers:
 * `"Mongo"`, `"RedisClient"`, `"SettingsDebug"`
 
 A subset of critical events can also be persisted into `logs` collection via `LogsRepository`.
+
+### Logging Strategy (MongoDB + stdout (AWS CloudWatch)
+
+The assignment asks for conversation and task logs to be written to MongoDB. In this project, that requirement is implemented via the **domain model**, not a separate flat log table:
+
+- **Conversation & task logs in MongoDB**
+  - `tasks` – one document per task, including status transitions, selected agent, routing reason, result, and error information.
+  - `agent_runs` – one document per router/executor run, including model, token usage, and raw inputs/outputs.
+  - `messages` – all user/assistant/tool messages for a task/session (conversation history).
+  - `sessions` – session-level metadata and `last_task_id`.
+  - `logs` (optional) – additional structured business events when needed.
+
+These collections together represent the full log of “what happened” for each task and conversation, and are optimized for querying, debugging, and analytics directly in MongoDB.
+
+- **Application / infrastructure logs via stdout**
+  - Operational logs (HTTP requests, Redis/Mongo issues, worker lifecycle, etc.) are written as structured JSON using `structlog` to **stdout**.
+  - In AWS, stdout is collected by **CloudWatch Logs** for centralized search, retention, and alerting.
+
+This dual approach keeps **business events** durable and queryable in MongoDB (satisfying the requirement), while leveraging stdout + CloudWatch for scalable, 12-Factor–style application logging.
 
 ### Settings Debug Snapshot
 
@@ -1325,7 +1343,6 @@ Scripts (bash, `set -euo pipefail`):
 
 * Positions the model as a **senior technical content writer**.
 * Enforces:
-
   * Markdown headings,
   * Structured explanation,
   * Explicit references.
