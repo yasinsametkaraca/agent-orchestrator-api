@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import textwrap
-from typing import List
+from typing import Any, Dict, List, TypedDict
+
+from langgraph.graph import StateGraph, START, END
 
 from app.agents.base import AgentOutput, BaseAgent
 from app.core.config import get_settings
+from app.core.logging import get_logger
+from app.llm.base_client import LLMResult, LLMUsage
 from app.llm.openai_client import get_openai_client
 from app.llm.tools.web_search_tool import WebSearchResult, WebSearchTool
 from app.models.domain.task import Citation, Task
-from app.core.logging import get_logger
+
+
+class ContentAgentState(TypedDict, total=False):
+    task: Task
+    citations: List[Citation]
+    search_context: str
+    content: str
+    llm_usage: LLMUsage
 
 
 class ContentAgent(BaseAgent):
@@ -21,6 +32,19 @@ class ContentAgent(BaseAgent):
         self.logger = get_logger(self.name)
         self._min_citations = 2
         self._max_citations = 5
+        self._graph = self._build_graph()
+
+    def _build_graph(self):
+        graph = StateGraph(ContentAgentState)
+
+        graph.add_node("search_web", self._search_web_node)
+        graph.add_node("generate_content", self._generate_content_node)
+
+        graph.add_edge(START, "search_web")
+        graph.add_edge("search_web", "generate_content")
+        graph.add_edge("generate_content", END)
+
+        return graph.compile()
 
     def _build_search_query(self, raw_text: str) -> str:
         """
@@ -69,17 +93,13 @@ class ContentAgent(BaseAgent):
 
         return content.rstrip() + "\n\n" + "\n".join(lines) + "\n"
 
-    async def run(self, task: Task) -> AgentOutput:
-        """
-        Generate a blog-style, well-structured content piece using web context.
-        """
-        self.logger.info("ContentAgent.run.start", task_id=task.task_id)
+    async def _search_web_node(self, state: ContentAgentState) -> Dict[str, Any]:
+        task = state["task"]
+        self.logger.info("ContentAgent.search.start", task_id=task.task_id)
 
-        # Step 1: Build a concise search query
         query = self._build_search_query(task.input_text)
         self.logger.debug("ContentAgent.search.query_built", task_id=task.task_id, query=query)
 
-        # Step 2: Run web search with defensive error handling
         search_results: List[WebSearchResult] = []
         try:
             search_results = await self.web_search.search(query=query, max_results=self._max_citations)
@@ -131,6 +151,19 @@ class ContentAgent(BaseAgent):
             )
 
         search_context = "\n\n".join(search_context_lines) if search_context_lines else "No search results."
+
+        return {"citations": citations, "search_context": search_context}
+
+    async def _generate_content_node(self, state: ContentAgentState) -> Dict[str, Any]:
+        task = state["task"]
+        citations = state.get("citations", [])
+        search_context = state.get("search_context", "No search results.")
+
+        self.logger.info(
+            "ContentAgent.generate.start",
+            task_id=task.task_id,
+            citations=len(citations),
+        )
 
         system_prompt = textwrap.dedent(
             """
@@ -193,20 +226,55 @@ class ContentAgent(BaseAgent):
             {"role": "user", "content": user_prompt},
         ]
 
-        result = await self.llm.chat(
+        result: LLMResult = await self.llm.chat(
             model=self.settings.llm_content_model,
             messages=messages,
             temperature=0.4,
         )
 
         content = result.content
+
+        self.logger.info(
+            "ContentAgent.generate.completed",
+            task_id=task.task_id,
+            prompt_tokens=result.usage.prompt_tokens,
+            completion_tokens=result.usage.completion_tokens,
+        )
+
+        return {"content": content, "llm_usage": result.usage}
+
+    async def run(self, task: Task) -> AgentOutput:
+        """
+        Generate a blog-style, well-structured content piece using a LangGraph-based pipeline.
+        """
+        self.logger.info("ContentAgent.run.start", task_id=task.task_id)
+
+        state: ContentAgentState = {"task": task}
+        try:
+            result_state: ContentAgentState = await self._graph.ainvoke(state)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self.logger.error(
+                "ContentAgent.run.error",
+                task_id=task.task_id,
+                error=str(exc),
+                exc_info=exc,
+            )
+            raise
+
+        citations = result_state.get("citations", [])
+        content = result_state.get("content", "")
+
         content = self._append_reference_section_if_missing(content, citations)
+
+        usage = result_state.get("llm_usage")
+        prompt_tokens = usage.prompt_tokens if isinstance(usage, LLMUsage) else 0
+        completion_tokens = usage.completion_tokens if isinstance(usage, LLMUsage) else 0
 
         self.logger.info(
             "ContentAgent.run.completed",
             task_id=task.task_id,
-            prompt_tokens=result.usage.prompt_tokens,
-            completion_tokens=result.usage.completion_tokens,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
             citations=len(citations),
         )
 
