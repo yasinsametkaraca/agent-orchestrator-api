@@ -113,7 +113,6 @@ async def get_task_detail(
 async def stream_task_events(
     request: Request,
     task_id: str = Path(...),
-    _: str | None = Depends(verify_api_key),
 ):
     """
     SSE endpoint streaming task status changes.
